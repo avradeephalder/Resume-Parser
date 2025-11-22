@@ -1,17 +1,17 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from extract import extract_text_from_pdf
-from llm import extract_with_openai
+from llm import extract_with_ollama
 
-app = FastAPI(title="Resume Parser (OpenAI)")
+app = FastAPI(title="Resume Parser (Ollama Llama 3.1 8B)")
 
 @app.get("/health")
 def health():
-    return {"status": "Parser running with OpenAI"}
+    return {"status": "Parser running with Ollama Llama 3.1 8B"}
 
 @app.post("/parse")
 async def parse_resume(file: UploadFile = File(...)):
-    """Parse resume using OpenAI GPT-3.5-turbo"""
+    """Parse resume using Ollama Llama 3.1 8B"""
     try:
         if not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Only PDF is supported")
@@ -26,11 +26,9 @@ async def parse_resume(file: UploadFile = File(...)):
             raise HTTPException(status_code=422, detail="Could not extract text from PDF")
 
         print(f"[INFO] Extracted {len(text)} characters from PDF")
-        print("[INFO] Sending to OpenAI for extraction...")
-
-        result = extract_with_openai(text)
         
-        print("[INFO] OpenAI extraction successful")
+        result = extract_with_ollama(text)
+        
         return JSONResponse(content=result, status_code=200)
     
     except HTTPException as e:

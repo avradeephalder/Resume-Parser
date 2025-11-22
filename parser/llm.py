@@ -1,22 +1,17 @@
+import requests
 import json
 import re
 import os
-from dotenv import load_dotenv
-from openai import OpenAI
 
-load_dotenv()
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY not found in .env file")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
+MODEL_NAME = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 COMPREHENSIVE_PROMPT = """You are an expert resume parser. Extract ALL information from this resume and return ONLY valid JSON.
 
 Resume Text:
 {resume_text}
 
-Return JSON with this EXACT structure (include all sections, use null for missing data):
+Return JSON with this EXACT structure:
 {{
   "basics": {{
     "name": "full name",
@@ -54,10 +49,6 @@ Return JSON with this EXACT structure (include all sections, use null for missin
     {{
       "name": "Technical Skills",
       "keywords": ["Java", "Python", "React"]
-    }},
-    {{
-      "name": "Soft Skills",
-      "keywords": ["Leadership", "Communication"]
     }}
   ],
   "projects": [
@@ -69,8 +60,7 @@ Return JSON with this EXACT structure (include all sections, use null for missin
     }}
   ],
   "languages": [
-    {{"language": "English", "fluency": "Fluent"}},
-    {{"language": "Spanish", "fluency": "Intermediate"}}
+    {{"language": "English", "fluency": "Fluent"}}
   ],
   "certificates": [
     {{
@@ -96,45 +86,36 @@ Return JSON with this EXACT structure (include all sections, use null for missin
   ]
 }}
 
-CRITICAL RULES:
-1. Return ONLY the JSON object
-2. No markdown, no code blocks, no explanations
-3. Extract ALL information accurately from the resume
-4. Use null for missing values, not empty strings
-5. Parse dates in YYYY-MM-DD format where possible
-6. Group skills into categories (Technical, Soft, etc.)
-7. Extract ALL projects with their tech stacks"""
-
+CRITICAL: Return ONLY the JSON object, no markdown, no explanations."""
 
 def _extract_json_block(text: str) -> str:
-    """Extract JSON from response text, removing markdown if present"""
-    text = re.sub(r'```')
-    text = re.sub(r'```\s*', '', text)
-    
+    """Extract JSON from response text"""
+    # remove any triple backtick code fences (e.g.,  or json)
+    text = re.sub(r'```', '', text)
     m = re.search(r'\{.*\}', text, re.DOTALL)
     return m.group(0) if m else text
 
-
-def extract_with_openai(resume_text: str) -> dict:
-    """Extract resume data using OpenAI GPT-3.5-turbo"""
+def extract_with_ollama(resume_text: str) -> dict:
+    """Extract resume data using Ollama Llama 3.1 8B"""
+    prompt = COMPREHENSIVE_PROMPT.format(resume_text=resume_text[:4000])
     
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    
-    # Limit text to 8000 chars (GPT-3.5 context window)
-    prompt = COMPREHENSIVE_PROMPT.format(resume_text=resume_text[:8000])
+    payload = {
+        "model": MODEL_NAME,
+        "prompt": prompt,
+        "stream": False,
+        "temperature": 0.1,
+        "format": "json"
+    }
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are an expert resume parser that returns structured JSON data."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.0,
-            max_tokens=2500
-        )
+        print(f"[INFO] Sending to Ollama ({MODEL_NAME})...")
+        r = requests.post(OLLAMA_URL, json=payload, timeout=180)
         
-        raw = response.choices[0].message.content
+        if r.status_code != 200:
+            raise RuntimeError(f"Ollama error {r.status_code}: {r.text}")
+        
+        data = r.json()
+        raw = data.get("response", "")
         json_str = _extract_json_block(raw).strip()
         
         result = json.loads(json_str)
@@ -150,9 +131,13 @@ def extract_with_openai(resume_text: str) -> dict:
         result.setdefault("awards", [])
         result.setdefault("volunteer", [])
         
+        print(f"[INFO] Successfully parsed with Llama 3.1 8B")
         return result
     
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"Failed to parse JSON from OpenAI: {e}\nRaw response: {raw[:500]}")
+        print(f"[ERROR] Failed to parse JSON: {e}")
+        print(f"[DEBUG] Raw response: {raw[:500]}")
+        raise RuntimeError(f"Failed to parse JSON from Ollama: {e}")
     except Exception as e:
-        raise RuntimeError(f"OpenAI API error: {str(e)}")
+        print(f"[ERROR] Ollama extraction failed: {str(e)}")
+        raise RuntimeError(f"Ollama extraction failed: {str(e)}")

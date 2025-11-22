@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useRef, useEffect, memo } from "react"
 import styled from "styled-components"
 
 // ============================================================================
@@ -9,10 +9,7 @@ import styled from "styled-components"
 
 const BackgroundMesh = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background: 
     radial-gradient(circle at 15% 30%, rgba(10, 132, 255, 0.25) 0%, transparent 40%),
     radial-gradient(circle at 85% 70%, rgba(0, 245, 212, 0.2) 0%, transparent 50%),
@@ -20,15 +17,12 @@ const BackgroundMesh = styled.div`
     radial-gradient(circle at 80% 20%, rgba(10, 132, 255, 0.15) 0%, transparent 45%);
   background-size: 150% 150%;
   animation: meshFlow 20s ease-in-out infinite;
-  z-index: 0;
   pointer-events: none;
+  will-change: background-position;
 
   @keyframes meshFlow {
-    0% { background-position: 0% 0%, 100% 100%, 50% 50%, 0% 100%; }
-    25% { background-position: 50% 30%, 50% 70%, 80% 30%, 30% 50%; }
+    0%, 100% { background-position: 0% 0%, 100% 100%, 50% 50%, 0% 100%; }
     50% { background-position: 100% 0%, 0% 100%, 30% 80%, 100% 0%; }
-    75% { background-position: 50% 70%, 50% 30%, 70% 50%, 70% 50%; }
-    100% { background-position: 0% 0%, 100% 100%, 50% 50%, 0% 100%; }
   }
 `
 
@@ -48,10 +42,7 @@ const AppContainer = styled.div`
   &::after {
     content: '';
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     background-image: 
       linear-gradient(rgba(10, 132, 255, 0.02) 1px, transparent 1px),
       linear-gradient(90deg, rgba(10, 132, 255, 0.02) 1px, transparent 1px);
@@ -74,7 +65,6 @@ const HeroSection = styled.section`
   justify-content: space-between;
   padding: 60px 40px;
   gap: 60px;
-  position: relative;
 
   @media (max-width: 1024px) {
     flex-direction: column;
@@ -123,11 +113,11 @@ const HeroHeadline = styled.h1`
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: gradientFlow 6s ease infinite;
+  will-change: background-position;
 
   @keyframes gradientFlow {
-    0% { background-position: 0% 50%; }
+    0%, 100% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
   }
 
   @media (max-width: 768px) {
@@ -155,8 +145,7 @@ const HeroSubtitle = styled.p`
   }
 
   @media (max-width: 1024px) {
-    margin-left: auto;
-    margin-right: auto;
+    margin-inline: auto;
   }
 `
 
@@ -201,7 +190,7 @@ const PrimaryButton = styled.button`
     transition: width 0.6s, height 0.6s;
   }
 
-  &:hover {
+  &:hover:not(:disabled) {
     transform: translateY(-3px);
     box-shadow: 0 8px 40px rgba(0, 245, 212, 0.4);
 
@@ -215,7 +204,6 @@ const PrimaryButton = styled.button`
     opacity: 0.5;
     cursor: not-allowed;
     box-shadow: none;
-    pointer-events: none;
   }
 
   @media (max-width: 768px) {
@@ -229,7 +217,7 @@ const SecondaryButton = styled(PrimaryButton)`
   border: 2px solid #00f5d4;
   box-shadow: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: rgba(0, 245, 212, 0.1);
     box-shadow: 0 0 20px rgba(0, 245, 212, 0.3);
   }
@@ -260,16 +248,7 @@ const HeroVisual = styled.div`
   }
 `
 
-const FloatingCard = styled.div`
-  position: absolute;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  animation: ${(props) => props.$animation || "float 6s ease-in-out infinite"};
-
+const floatKeyframes = `
   @keyframes float {
     0%, 100% { transform: translateY(0px); }
     50% { transform: translateY(-20px); }
@@ -284,6 +263,19 @@ const FloatingCard = styled.div`
     0%, 100% { transform: translateY(0px) rotateZ(2deg); }
     50% { transform: translateY(-25px) rotateZ(-2deg); }
   }
+`
+
+const FloatingCard = styled.div`
+  position: absolute;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  will-change: transform;
+
+  ${floatKeyframes}
 
   ${(props) => {
     switch (props.$position) {
@@ -297,14 +289,14 @@ const FloatingCard = styled.div`
       case 2:
         return `
           top: 60%;
-          right: 0;
+          right: 100px;
           width: 180px;
           animation: floatAlt2 8s ease-in-out infinite;
         `
       case 3:
         return `
           bottom: 20px;
-          left: 50%;
+          left: 30%;
           transform: translateX(-50%);
           width: 220px;
           animation: float 6s ease-in-out infinite;
@@ -333,7 +325,6 @@ const UploadSection = styled.section`
   align-items: center;
   justify-content: center;
   padding: 80px 40px;
-  position: relative;
 
   @media (max-width: 1024px) {
     padding: 60px 30px;
@@ -494,7 +485,6 @@ const UploadLink = styled.button`
   font-weight: 600;
   padding: 0;
   transition: all 0.3s ease;
-  text-decoration: none;
   position: relative;
   z-index: 1;
   width: 100%;
@@ -716,17 +706,15 @@ const ResultsSubtitle = styled.p`
   color: #b4b4d1;
   margin: 0;
   max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
+  margin-inline: auto;
 `
 
 const ResultsGrid = styled.div`
   max-width: 1400px;
-  margin: 0 auto;
+  margin: 0 auto 60px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 30px;
-  margin-bottom: 60px;
 
   @media (max-width: 1024px) {
     grid-template-columns: repeat(2, 1fr);
@@ -944,7 +932,7 @@ const ActionContainer = styled.div`
 
 const API_BASE_URL = "http://localhost:5000/api"
 
-async function uploadResumeToBackend(file) {
+const uploadResumeToBackend = async (file) => {
   const formData = new FormData()
   formData.append("file", file)
 
@@ -961,7 +949,7 @@ async function uploadResumeToBackend(file) {
   return response.json()
 }
 
-function transformBackendData(jsonResume) {
+const transformBackendData = (jsonResume) => {
   const location = jsonResume?.basics?.location
   const locationStr = typeof location === "string" 
     ? location 
@@ -1004,6 +992,91 @@ function transformBackendData(jsonResume) {
 }
 
 // ============================================================================
+// MEMOIZED COMPONENTS
+// ============================================================================
+
+const FloatingCards = memo(() => (
+  <>
+    <FloatingCard $position={1}>
+      <CardIcon>⚡</CardIcon>
+      <CardText>Instant Analysis</CardText>
+    </FloatingCard>
+    <FloatingCard $position={2}>
+      <CardIcon>🎯</CardIcon>
+      <CardText>Skill Matching</CardText>
+    </FloatingCard>
+    <FloatingCard $position={3}>
+      <CardIcon>📊</CardIcon>
+      <CardText>Smart Insights</CardText>
+    </FloatingCard>
+  </>
+))
+FloatingCards.displayName = "FloatingCards"
+
+const ContactInfoCard = memo(({ contact }) => (
+  <ResultCard $delay={0}>
+    <CardTitle>Contact Info</CardTitle>
+    <ContactInfo>
+      <InfoItem>
+        <InfoLabel>Full Name</InfoLabel>
+        <InfoValue>{contact.name}</InfoValue>
+      </InfoItem>
+      <InfoItem>
+        <InfoLabel>Email</InfoLabel>
+        <InfoValue>{contact.email}</InfoValue>
+      </InfoItem>
+      <InfoItem>
+        <InfoLabel>Phone</InfoLabel>
+        <InfoValue>{contact.phone}</InfoValue>
+      </InfoItem>
+      <InfoItem>
+        <InfoLabel>Location</InfoLabel>
+        <InfoValue>{contact.location}</InfoValue>
+      </InfoItem>
+      {contact.website && (
+        <InfoItem>
+          <InfoLabel>Website</InfoLabel>
+          <InfoValue>
+            <ProfileLink href={contact.website} target="_blank" rel="noopener noreferrer">
+              {contact.website}
+            </ProfileLink>
+          </InfoValue>
+        </InfoItem>
+      )}
+      {contact.profiles.map((profile, idx) => (
+        <InfoItem key={idx}>
+          <InfoLabel>{profile.network}</InfoLabel>
+          <InfoValue>
+            <ProfileLink href={profile.url} target="_blank" rel="noopener noreferrer">
+              {profile.url}
+            </ProfileLink>
+          </InfoValue>
+        </InfoItem>
+      ))}
+    </ContactInfo>
+  </ResultCard>
+))
+ContactInfoCard.displayName = "ContactInfoCard"
+
+const SkillsCard = memo(({ skills }) => (
+  <ResultCard $delay={0.1}>
+    <CardTitle>Core Skills</CardTitle>
+    <SkillsGrid>
+      {skills.length > 0 ? (
+        skills.map((skill, idx) => (
+          <SkillBadge key={idx} $delay={0.2 + idx * 0.04}>
+            {skill}
+          </SkillBadge>
+        ))
+      ) : (
+        <InfoValue>No skills extracted</InfoValue>
+      )}
+    </SkillsGrid>
+  </ResultCard>
+))
+SkillsCard.displayName = "SkillsCard"
+
+// ============================================================================
 // HOME COMPONENT
 // ============================================================================
 
@@ -1022,16 +1095,12 @@ export default function Home() {
   useEffect(() => {
     if (!isLoading) return
 
-    let stageIndex = 0
     const stageTimer = setInterval(() => {
-      stageIndex = (stageIndex + 1) % stages.length
-      setLoadingStage(stageIndex)
+      setLoadingStage((prev) => (prev + 1) % stages.length)
     }, 1000)
 
-    return () => {
-      clearInterval(stageTimer)
-    }
-  }, [isLoading])
+    return () => clearInterval(stageTimer)
+  }, [isLoading, stages.length])
 
   const handleDrag = useCallback((e) => {
     e.preventDefault()
@@ -1043,8 +1112,9 @@ export default function Home() {
     e.preventDefault()
     e.stopPropagation()
     setIsDragActive(false)
-    if (e.dataTransfer.files.length > 0) {
-      const droppedFile = e.dataTransfer.files[0]
+    
+    const droppedFile = e.dataTransfer.files[0]
+    if (droppedFile) {
       if (droppedFile.type === "application/pdf") {
         setFile(droppedFile)
         setError(null)
@@ -1055,8 +1125,8 @@ export default function Home() {
   }, [])
 
   const handleFileSelect = useCallback((e) => {
-    if (e.target.files.length > 0) {
-      const selectedFile = e.target.files[0]
+    const selectedFile = e.target.files[0]
+    if (selectedFile) {
       if (selectedFile.type === "application/pdf") {
         setFile(selectedFile)
         setError(null)
@@ -1085,7 +1155,7 @@ export default function Home() {
       setParsedData(transformedData)
       setFile(null)
     } catch (err) {
-      setError(err.message || "Failed to parse resume. Please check your OpenAI API key.")
+      setError(err.message || "Failed to parse resume")
       console.error("Parse error:", err)
     } finally {
       setIsLoading(false)
@@ -1100,7 +1170,9 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [])
 
-  // Loading state
+  const handleClearFile = useCallback(() => setFile(null), [])
+  const handleFileInputClick = useCallback(() => fileInputRef.current?.click(), [])
+
   if (isLoading) {
     return (
       <AppContainer>
@@ -1115,7 +1187,7 @@ export default function Home() {
                 <LoadingDot $delay="0.2s">.</LoadingDot>
                 <LoadingDot $delay="0.4s">.</LoadingDot>
               </LoadingText>
-              <LoadingSubtext>Processing your resume with OpenAI...</LoadingSubtext>
+              <LoadingSubtext>Processing your resume with AI intelligence...</LoadingSubtext>
             </LoadingCard>
           </LoadingSection>
         </ContentWrapper>
@@ -1123,7 +1195,6 @@ export default function Home() {
     )
   }
 
-  // Results state
   if (parsedData) {
     return (
       <AppContainer>
@@ -1132,70 +1203,13 @@ export default function Home() {
           <ResultsSection>
             <ResultsHeader>
               <ResultsTitle>Analysis Complete</ResultsTitle>
-              <ResultsSubtitle>Your resume has been analyzed by OpenAI GPT-3.5.</ResultsSubtitle>
+              <ResultsSubtitle>Your resume has been comprehensively analyzed by our AI engine.</ResultsSubtitle>
             </ResultsHeader>
 
             <ResultsGrid>
-              {/* Contact Info */}
-              <ResultCard $delay={0}>
-                <CardTitle>Contact Info</CardTitle>
-                <ContactInfo>
-                  <InfoItem>
-                    <InfoLabel>Full Name</InfoLabel>
-                    <InfoValue>{parsedData.contact.name}</InfoValue>
-                  </InfoItem>
-                  <InfoItem>
-                    <InfoLabel>Email</InfoLabel>
-                    <InfoValue>{parsedData.contact.email}</InfoValue>
-                  </InfoItem>
-                  <InfoItem>
-                    <InfoLabel>Phone</InfoLabel>
-                    <InfoValue>{parsedData.contact.phone}</InfoValue>
-                  </InfoItem>
-                  <InfoItem>
-                    <InfoLabel>Location</InfoLabel>
-                    <InfoValue>{parsedData.contact.location}</InfoValue>
-                  </InfoItem>
-                  {parsedData.contact.website && (
-                    <InfoItem>
-                      <InfoLabel>Website</InfoLabel>
-                      <InfoValue>
-                        <ProfileLink href={parsedData.contact.website} target="_blank" rel="noopener noreferrer">
-                          {parsedData.contact.website}
-                        </ProfileLink>
-                      </InfoValue>
-                    </InfoItem>
-                  )}
-                  {parsedData.contact.profiles.length > 0 && parsedData.contact.profiles.map((profile, idx) => (
-                    <InfoItem key={idx}>
-                      <InfoLabel>{profile.network}</InfoLabel>
-                      <InfoValue>
-                        <ProfileLink href={profile.url} target="_blank" rel="noopener noreferrer">
-                          {profile.url}
-                        </ProfileLink>
-                      </InfoValue>
-                    </InfoItem>
-                  ))}
-                </ContactInfo>
-              </ResultCard>
+              <ContactInfoCard contact={parsedData.contact} />
+              <SkillsCard skills={parsedData.skills} />
 
-              {/* Skills */}
-              <ResultCard $delay={0.1}>
-                <CardTitle>Core Skills</CardTitle>
-                <SkillsGrid>
-                  {parsedData.skills.length > 0 ? (
-                    parsedData.skills.map((skill, idx) => (
-                      <SkillBadge key={idx} $delay={0.2 + idx * 0.04}>
-                        {skill}
-                      </SkillBadge>
-                    ))
-                  ) : (
-                    <InfoValue>No skills extracted</InfoValue>
-                  )}
-                </SkillsGrid>
-              </ResultCard>
-
-              {/* Experience */}
               <ResultCard $delay={0.2}>
                 <CardTitle>Professional Experience</CardTitle>
                 <Timeline>
@@ -1221,7 +1235,6 @@ export default function Home() {
                 </Timeline>
               </ResultCard>
 
-              {/* Education */}
               <ResultCard $delay={0.3}>
                 <CardTitle>Education</CardTitle>
                 <Timeline>
@@ -1242,8 +1255,7 @@ export default function Home() {
                 </Timeline>
               </ResultCard>
 
-              {/* Projects */}
-              {parsedData.projects && parsedData.projects.length > 0 && (
+              {parsedData.projects?.length > 0 && (
                 <ResultCard $delay={0.4}>
                   <CardTitle>Projects</CardTitle>
                   <Timeline>
@@ -1251,12 +1263,12 @@ export default function Home() {
                       <TimelineEntry key={idx} $delay={0.5 + idx * 0.1}>
                         <TimelineTitle>{project.name}</TimelineTitle>
                         {project.description && <TimelineOrg>{project.description}</TimelineOrg>}
-                        {project.highlights && project.highlights.length > 0 && (
+                        {project.highlights?.length > 0 && (
                           <ul style={{marginTop: '8px', paddingLeft: '20px', color: '#b4b4d1', fontSize: '0.85rem'}}>
                             {project.highlights.map((h, i) => <li key={i}>{h}</li>)}
                           </ul>
                         )}
-                        {project.keywords && project.keywords.length > 0 && (
+                        {project.keywords?.length > 0 && (
                           <SkillsGrid style={{marginTop: '12px'}}>
                             {project.keywords.map((tech, i) => (
                               <SkillBadge key={i} $delay={0}>{tech}</SkillBadge>
@@ -1269,8 +1281,7 @@ export default function Home() {
                 </ResultCard>
               )}
 
-              {/* Certifications */}
-              {parsedData.certificates && parsedData.certificates.length > 0 && (
+              {parsedData.certificates?.length > 0 && (
                 <ResultCard $delay={0.5}>
                   <CardTitle>Certifications</CardTitle>
                   <Timeline>
@@ -1285,8 +1296,7 @@ export default function Home() {
                 </ResultCard>
               )}
 
-              {/* Languages */}
-              {parsedData.languages && parsedData.languages.length > 0 && (
+              {parsedData.languages?.length > 0 && (
                 <ResultCard $delay={0.6}>
                   <CardTitle>Languages</CardTitle>
                   <SkillsGrid>
@@ -1299,8 +1309,7 @@ export default function Home() {
                 </ResultCard>
               )}
 
-              {/* Awards */}
-              {parsedData.awards && parsedData.awards.length > 0 && (
+              {parsedData.awards?.length > 0 && (
                 <ResultCard $delay={0.7}>
                   <CardTitle>Awards & Honors</CardTitle>
                   <Timeline>
@@ -1315,8 +1324,7 @@ export default function Home() {
                 </ResultCard>
               )}
 
-              {/* Volunteer */}
-              {parsedData.volunteer && parsedData.volunteer.length > 0 && (
+              {parsedData.volunteer?.length > 0 && (
                 <ResultCard $delay={0.8}>
                   <CardTitle>Volunteer Work</CardTitle>
                   <Timeline>
@@ -1343,7 +1351,6 @@ export default function Home() {
     )
   }
 
-  // Default state: Hero + Upload
   return (
     <AppContainer>
       <BackgroundMesh />
@@ -1352,28 +1359,16 @@ export default function Home() {
           <HeroContent>
             <HeroHeadline>AI Resume Parser</HeroHeadline>
             <HeroSubtitle>
-              Unlock the full potential of your resume with intelligent analysis powered by OpenAI GPT-3.5.
+              Unlock the full potential of your resume with intelligent AI analysis.
               Extract key insights, validate skills, and get comprehensive parsing in seconds.
             </HeroSubtitle>
             <ButtonGroup>
               <PrimaryButton onClick={scrollToUpload}>Start Analysis</PrimaryButton>
-              <SecondaryButton onClick={scrollToUpload}>Learn More</SecondaryButton>
             </ButtonGroup>
           </HeroContent>
 
           <HeroVisual>
-            <FloatingCard $position={1}>
-              <CardIcon>⚡</CardIcon>
-              <CardText>Instant Analysis</CardText>
-            </FloatingCard>
-            <FloatingCard $position={2}>
-              <CardIcon>🎯</CardIcon>
-              <CardText>Skill Matching</CardText>
-            </FloatingCard>
-            <FloatingCard $position={3}>
-              <CardIcon>📊</CardIcon>
-              <CardText>Smart Insights</CardText>
-            </FloatingCard>
+            <FloatingCards />
           </HeroVisual>
         </HeroSection>
 
@@ -1382,13 +1377,13 @@ export default function Home() {
             <UploadCard>
               <UploadTitle>Upload Your Resume</UploadTitle>
               <UploadDescription>
-                Drop your PDF file here or browse your computer. Powered by OpenAI GPT-3.5 for high-accuracy extraction.
+                Drop your PDF file here or browse your computer. Powered by advanced AI for high-accuracy extraction.
               </UploadDescription>
 
               {file ? (
                 <FilePreview>
                   <FileName>✓ {file.name}</FileName>
-                  <ClearButton onClick={() => setFile(null)} aria-label="Remove file">
+                  <ClearButton onClick={handleClearFile} aria-label="Remove file">
                     ✕
                   </ClearButton>
                 </FilePreview>
@@ -1400,7 +1395,7 @@ export default function Home() {
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleFileInputClick}
                   >
                     <UploadIcon>📄</UploadIcon>
                     <DropZoneText>Drag & Drop Your Resume Here</DropZoneText>
@@ -1410,7 +1405,7 @@ export default function Home() {
                     <OrText>or</OrText>
                   </OrDivider>
 
-                  <UploadLink onClick={() => fileInputRef.current?.click()}>Browse Files</UploadLink>
+                  <UploadLink onClick={handleFileInputClick}>Browse Files</UploadLink>
                 </>
               )}
 
