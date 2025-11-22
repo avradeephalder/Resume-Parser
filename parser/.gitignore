@@ -1,0 +1,13 @@
+# Python specific
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+
+# Temp
+tmp_upload.pdf
+*.pdf

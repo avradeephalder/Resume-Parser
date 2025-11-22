@@ -1,0 +1,32 @@
+# Global ignores for entire project
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.pyc
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Temp files
+tmp_upload.pdf
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
